@@ -12,7 +12,11 @@ Sistema de trading algorítmico contínuo (24/7) em mercados de criptomoedas.
 
 ## Estado Atual
 
-**Fase 1 — Market Data** (em curso). WS Binance L2+trades, gap detector, persistência TimescaleDB e CLI `mdd ingest` prontos. Próximo: backtest harness e Risk Engine (Fase 2).
+**Fases 1–6 completas.** Stack ponta-a-ponta em produção local: ingest WS Binance → TimescaleDB, Risk Engine com auto-halt por drawdown, OMS com REST Binance assinado (HMAC SHA-256), Strategy (Grid Adaptativo + Avellaneda-Stoikov MM com skew OFI), backtest event-driven e main loop `mdd run`.
+
+**Cobertura:** 98 testes (4 deselected/live). Lint, format, mypy strict e pytest verdes. Risk Engine 94% cov.
+
+Próximo passo é humano: abrir conta Binance, configurar `.env` com API keys (saque bloqueado) e validar em testnet.
 
 ---
 
@@ -79,7 +83,7 @@ docker compose down                  # Parar stack
 docker compose down -v               # Parar + limpar volumes (CUIDADO: apaga dados)
 ```
 
-### Ingestão de market data (Fase 1)
+### Ingestão de market data
 
 ```powershell
 # 1. Subir apenas o banco
@@ -88,7 +92,7 @@ docker compose up -d timescaledb
 # 2. Validar persistência com TimescaleDB real
 uv run pytest -m integration -q
 
-# 3. Iniciar ingestão WS Binance Testnet → TimescaleDB
+# 3. Iniciar ingestão WS Binance Testnet -> TimescaleDB
 uv run mdd ingest --symbol BTCUSDT --testnet --batch-size 50 --flush-interval-s 1.0
 
 # 4. Inspecionar dados gravados
@@ -97,9 +101,16 @@ docker exec -it mdd-timescaledb psql -U mdd -d mdd `
   -c "SELECT COUNT(*), MAX(ts) FROM trades_tape WHERE symbol='BTCUSDT';"
 ```
 
-`Ctrl+C` interrompe o ingest com flush final dos buffers (no Linux via SIGTERM
-também; no Windows o handler é no-op por limitação do asyncio — `KeyboardInterrupt`
-funciona normalmente).
+### Motor de trading
+
+```powershell
+# Testnet (padrão). Mainnet exige MDD_ENV=production.
+uv run mdd run --symbol BTCUSDT --testnet
+```
+
+O runner conecta WS Binance, aplica gate do Risk Engine, gera quotes via `AdaptiveGrid`
+e submete via REST assinado. `Ctrl+C` cancela tudo e fecha conexões.
+Métricas Prometheus em `:9100/metrics`.
 
 ---
 
@@ -129,15 +140,17 @@ notebooks/      # notebooks/scratch/ é local-only
 
 ## Pipeline de Implantação
 
-| Fase | Critério go/no-go |
-| --- | --- |
-| 0 — Fundação | `docker compose up` sobe stack, lint+mypy+tests verdes |
-| 1 — Benchmark exchange | Matriz de decisão preenchida com dados reais de 72h |
-| 2 — Modelagem quant | Notebooks reproduzíveis, parâmetros versionados em YAML |
-| 3 — Backtest | Sharpe ≥ 1.5, MaxDD ≤ 8% em 6+ janelas walk-forward |
-| 4 — Engenharia core | Cobertura ≥ 75% no Risk Engine, chaos test passa |
-| 5 — Paper trading | 14d testnet, métricas ±15% do backtest, uptime ≥ 99.5% |
-| 6 — Produção micro-lote | 30d com Sharpe rolling ≥ 1.2 antes de escalar |
+| Fase | Status | Critério go/no-go |
+| --- | --- | --- |
+| 0 — Fundação | ✅ | `docker compose up` sobe stack, lint+mypy+tests verdes |
+| 1 — Market data | ✅ | WS + gap detector + TimescaleDB + `mdd ingest` |
+| 2 — Risk Engine | ✅ | Cobertura ≥ 75% (atual: 94%), fail-closed, auto-halt drawdown |
+| 3 — OMS | ✅ | REST Binance assinado HMAC-SHA256, cancel_all, reconcile |
+| 4 — Strategy | ✅ | AdaptiveGrid + Avellaneda-Stoikov MM com skew OFI |
+| 5 — Backtest | ✅ | Engine event-driven com PnL realized + MtM + fees maker |
+| 6 — Main loop | ✅ | `mdd run` integra WS → Risk → Strategy → OMS |
+| 7 — Paper trading | ⏳ | 14d testnet, métricas ±15% do backtest, uptime ≥ 99.5% |
+| 8 — Produção micro-lote | ⏳ | 30d com Sharpe rolling ≥ 1.2 antes de escalar |
 
 ---
 

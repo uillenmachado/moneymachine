@@ -122,7 +122,8 @@ Quando uma task for concluída ou um erro corrigido, **ATUALIZE** os arquivos ab
 ### Git
 
 - Branch padrão: `main`.
-- Trabalho atual é **local-only** (sem push). Quando houver remote, commit + push ao final de cada task.
+- Remote: `origin` → `https://github.com/uillenmachado/moneymachine.git`.
+- Commits sempre seguidos de `git push origin main` ao final de cada task (regra do usuário).
 - Mensagens de commit: padrão `<tipo>(<escopo>): <descrição>` (feat, fix, docs, refactor, test, chore).
 - **`docs/` e `tests/.local/` são locais-only** — não trackear.
 
