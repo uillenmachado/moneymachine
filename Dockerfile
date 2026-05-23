@@ -10,8 +10,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1
 
-# uv para gerenciamento de dependências
-COPY --from=ghcr.io/astral-sh/uv:0.4.18 /uv /usr/local/bin/uv
+# uv para gerenciamento de dependencias
+COPY --from=ghcr.io/astral-sh/uv:0.11.16 /uv /usr/local/bin/uv
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -19,8 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Cache de dependências (só rebuilda quando pyproject muda)
-COPY pyproject.toml uv.lock* ./
+# Cache de dependencias (so rebuilda quando pyproject muda)
+COPY pyproject.toml uv.lock* README.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev || \
     uv sync --no-install-project --no-dev
