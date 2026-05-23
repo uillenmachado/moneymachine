@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    project: maquina-de-dinheiro
+    env: development
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: mdd-app
+    static_configs:
+      - targets: ["host.docker.internal:9100"]
+        labels:
+          service: trading-bot
+    # Em Linux, substituir host.docker.internal por gateway da bridge ou usar
+    # extra_hosts no compose. Em Windows/Mac, host.docker.internal funciona nativo.
+
+  - job_name: mdd-app-container
+    static_configs:
+      - targets: ["app:9100"]
+        labels:
+          service: trading-bot-container

@@ -1,0 +1,98 @@
+# Docker Compose — stack de desenvolvimento local
+# Sobe: TimescaleDB + Prometheus + Grafana + (opcional) o app
+# Em produção, o app rodará via systemd ou Docker Swarm separadamente.
+
+name: mdd
+
+services:
+  # ─────────── Banco: TimescaleDB (Postgres + extensão de séries temporais) ───────────
+  timescaledb:
+    image: timescale/timescaledb:2.16.1-pg16
+    container_name: mdd-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mdd}
+      POSTGRES_USER: ${POSTGRES_USER:-mdd}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_local_only}
+      TS_TUNE_MEMORY: 2GB
+      TS_TUNE_NUM_CPUS: 2
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./infra/timescaledb/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mdd} -d ${POSTGRES_DB:-mdd}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mdd-net
+
+  # ─────────── Prometheus: scraping de métricas do app ───────────
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: mdd-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - mdd-net
+
+  # ─────────── Grafana: dashboards ───────────
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: mdd-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - mdd-net
+
+  # ─────────── App (opcional em dev — geralmente roda fora do compose) ───────────
+  # Para habilitar: docker compose --profile app up
+  app:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mdd-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: timescaledb
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    ports:
+      - "9100:9100"  # Métricas Prometheus
+    networks:
+      - mdd-net
+
+volumes:
+  timescale_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  mdd-net:
+    driver: bridge
