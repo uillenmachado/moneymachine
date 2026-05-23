@@ -82,7 +82,8 @@ notebooks/scratch/
 
 # Local-only drafts (regra do projeto)
 tests/.local/
-docs/.drafts/
 
-# NOTA: tests/ e docs/ ficam NO git (para CI rodar e docs renderizar no GitHub),
-# mas são excluídos do Docker build via .dockerignore (não vão para produção).
+# docs/ é LOCAL-ONLY (regra do projeto — journaling de desenvolvimento).
+# Único doc canônico vai para README.md na raiz.
+# tests/ fica NO git (para CI rodar), excluído do Docker via .dockerignore.
+docs/
