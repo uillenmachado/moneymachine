@@ -127,6 +127,12 @@ Quando uma task for concluída ou um erro corrigido, **ATUALIZE** os arquivos ab
 - Mensagens de commit: padrão `<tipo>(<escopo>): <descrição>` (feat, fix, docs, refactor, test, chore).
 - **`docs/` e `tests/.local/` são locais-only** — não trackear.
 
+### CI / Docker (anti-regressão)
+
+- **Versão do uv** em `.github/workflows/ci.yml` (`astral-sh/setup-uv@v3 with: version`) e em `Dockerfile` (`ghcr.io/astral-sh/uv:<versão>`) deve ser **idêntica** à local (`python -m uv --version`). Pin exato, nunca `latest`. Atualizar os três no mesmo commit.
+- Em CI, instalar dependências sempre com `uv sync --all-extras --all-groups` — ferramentas dev (ruff, mypy, pytest, pre-commit) vivem em `[dependency-groups].dev` (PEP 735) e exigem `--all-groups` ou `--group dev`.
+- `pyproject.toml` declara `readme = "README.md"`. Qualquer estágio do `Dockerfile` que rode `uv sync` **sem** `--no-install-project` exige `README.md` já presente no `WORKDIR`. Coloque `README.md` na mesma camada `COPY` de `pyproject.toml`/`uv.lock`.
+
 ## Antes de Declarar uma Task Concluída
 
 Checklist obrigatório:
