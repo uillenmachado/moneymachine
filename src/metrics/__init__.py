@@ -11,7 +11,26 @@ from prometheus_client import Counter, Gauge, Histogram
 WS_EVENT_LATENCY_MS = Histogram(
     "mdd_ws_event_latency_ms",
     "Latência entre timestamp do exchange e processamento local (ms).",
+    labelnames=("stream",),
     buckets=(1, 5, 10, 25, 50, 100, 250, 500, 1000, 5000),
+)
+
+WS_MESSAGES_RECEIVED = Counter(
+    "mdd_ws_messages_received_total",
+    "Mensagens recebidas via WebSocket.",
+    labelnames=("stream",),
+)
+
+WS_RECONNECTS = Counter(
+    "mdd_ws_reconnects_total",
+    "Reconexões do cliente WebSocket.",
+    labelnames=("venue", "reason"),
+)
+
+WS_GAPS_DETECTED = Counter(
+    "mdd_ws_gaps_detected_total",
+    "Gaps detectados em streams sequenciais (lastUpdateId/event time).",
+    labelnames=("stream",),
 )
 
 ORDER_SUBMIT_LATENCY_MS = Histogram(
