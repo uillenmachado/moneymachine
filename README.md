@@ -12,7 +12,7 @@ Sistema de trading algorítmico contínuo (24/7) em mercados de criptomoedas.
 
 ## Estado Atual
 
-**Fase 0 — Fundação** (estrutura, ambiente reproduzível, decisões formalizadas). Próxima fase: ingestão de market data (WebSocket Binance L2 + trades tape).
+**Fase 1 — Market Data** (em curso). WS Binance L2+trades, gap detector, persistência TimescaleDB e CLI `mdd ingest` prontos. Próximo: backtest harness e Risk Engine (Fase 2).
 
 ---
 
@@ -67,7 +67,9 @@ uv run mypy .
 ### Comandos comuns
 
 ```powershell
-uv run pytest                        # Testes
+uv run pytest                        # Testes (exclui integration e live)
+uv run pytest -m integration         # Testes que tocam TimescaleDB local
+uv run pytest -m live                # Smoke contra Binance Testnet (rede real)
 uv run pytest --cov=src              # Cobertura
 uv run ruff check . --fix            # Lint + autofix
 uv run ruff format .                 # Formatação
@@ -76,6 +78,28 @@ docker compose logs -f app           # Logs do bot
 docker compose down                  # Parar stack
 docker compose down -v               # Parar + limpar volumes (CUIDADO: apaga dados)
 ```
+
+### Ingestão de market data (Fase 1)
+
+```powershell
+# 1. Subir apenas o banco
+docker compose up -d timescaledb
+
+# 2. Validar persistência com TimescaleDB real
+uv run pytest -m integration -q
+
+# 3. Iniciar ingestão WS Binance Testnet → TimescaleDB
+uv run mdd ingest --symbol BTCUSDT --testnet --batch-size 50 --flush-interval-s 1.0
+
+# 4. Inspecionar dados gravados
+docker exec -it mdd-timescaledb psql -U mdd -d mdd `
+  -c "SELECT COUNT(*), MAX(ts) FROM book_snapshots WHERE symbol='BTCUSDT';" `
+  -c "SELECT COUNT(*), MAX(ts) FROM trades_tape WHERE symbol='BTCUSDT';"
+```
+
+`Ctrl+C` interrompe o ingest com flush final dos buffers (no Linux via SIGTERM
+também; no Windows o handler é no-op por limitação do asyncio — `KeyboardInterrupt`
+funciona normalmente).
 
 ---
 
