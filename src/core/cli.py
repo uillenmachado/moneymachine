@@ -14,9 +14,11 @@ from rich.table import Table
 from core._version import __version__
 from core.config import get_settings
 from core.logging import configure_logging
+from core.runner import TradingRunner
 from data.binance_ws import BinanceWSClient
 from data.ingestion import IngestionService
 from data.storage import TimescaleStore
+from oms.binance_rest import BinanceRESTClient
 
 app = typer.Typer(
     name="mdd",
@@ -54,19 +56,60 @@ def info() -> None:
 
 
 @app.command()
-def run() -> None:
-    """Inicia o motor de trading. (Placeholder — implementado na Fase 4.)"""
+def run(
+    symbol: list[str] = typer.Option(  # noqa: B008
+        ["BTCUSDT"],
+        "--symbol",
+        "-s",
+        help="Símbolos para operar (pode repetir).",
+    ),
+    testnet: bool = typer.Option(default=True, help="Usar testnet da Binance."),
+) -> None:
+    """Inicia o motor de trading completo (WS -> Strategy -> Risk -> OMS)."""
     s = get_settings()
     configure_logging(level=s.log_level, json_output=s.log_json)
+
+    if not testnet and s.env != "production":
+        console.print(
+            Panel.fit(
+                "[red]Mainnet só é permitido com ENV=production.[/red]",
+                title="MdD run",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1)
+
     console.print(
         Panel.fit(
-            "[yellow]Motor de trading ainda não implementado.[/yellow]\n"
-            "Estamos na [bold]Fase 0 — Fundação[/bold].\n"
-            "Implementação ocorre na Fase 4 (Engenharia do Core).",
-            title="MdD",
-            border_style="yellow",
+            f"Motor de trading ({'testnet' if testnet else '[bold red]MAINNET[/bold red]'})\n"
+            f"Símbolos: {', '.join(symbol)}\n"
+            f"Capital: ${s.capital_usd:,.2f} · max DD: {s.risk.max_daily_drawdown_pct}%",
+            title="MdD run",
+            border_style="green" if testnet else "red",
         )
     )
+
+    asyncio.run(_run_trading(symbol, testnet=testnet))
+
+
+async def _run_trading(symbols: list[str], *, testnet: bool) -> None:
+    s = get_settings()
+    ws = BinanceWSClient(symbols=symbols, testnet=testnet)
+    rest = BinanceRESTClient(s.api_key, s.api_secret, testnet=testnet)
+    runner = TradingRunner(
+        settings=s,
+        ws_client=ws,
+        rest_client=rest,
+        symbols=symbols,
+    )
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        with contextlib.suppress(NotImplementedError):
+            loop.add_signal_handler(
+                sig,
+                lambda: asyncio.create_task(runner.stop()),
+            )
+    await runner.run()
 
 
 @app.command()
