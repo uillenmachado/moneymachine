@@ -175,6 +175,23 @@ Detalhes operacionais e checklists em `.github/copilot-instructions.md`.
 
 ---
 
+## Conformidade fiscal (Brasil)
+
+Operação como PF brasileira em exchange estrangeira (Binance Global) é lícita.
+Restrições regulatórias da CVM/BCB atingem empresas (PSAVs/VASPs), não usuário
+final. Obrigações que recaem sobre o operador:
+
+| Obrigação | Quando se aplica | Prazo |
+| --- | --- | --- |
+| **IN RFB 1.888** — declaração mensal e-CAC | Volume mensal em exchange estrangeira > R$ 30.000 | Último dia útil do mês seguinte |
+| **DARF código 4600** — IR ganho de capital (15–22,5%) | Houve ganho líquido no mês (alienações > R$ 35k para uso da isenção) | Último dia útil do mês seguinte |
+| **IRPF anual** — ficha Bens e Direitos grupo 08 | Saldo em 31/12 (códigos 81 BTC, 82 altcoin, 89 stablecoin) | Abril do ano seguinte |
+| **Reporte cambial BCB** | Remessas USD ↔ exchange estrangeira | No momento da operação |
+
+Módulo `src/tax/` (geração de relatório mensal + DARF) está no roadmap.
+
+---
+
 ## Licença
 
 Proprietário — Uillen Machado. Todos os direitos reservados.
