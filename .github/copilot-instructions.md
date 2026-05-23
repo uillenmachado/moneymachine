@@ -9,6 +9,72 @@ Sistema de trading algorítmico contínuo (24/7) em mercados cripto. Estratégia
 Documentação canônica em `docs/TRADING_THESIS.md` e `docs/ARCHITECTURE.md` (local-only).
 Estado atual e próximos passos em `docs/SESSION_HANDOFF.md`.
 
+## Regras de Produção (Inegociáveis)
+
+Estas cinco regras valem para **todo** trabalho neste repositório. Quebrá-las é regressão.
+
+### R1 — Zero ruído em CI/CD
+
+- **Nenhum** commit/push com erro ou warning de: ruff, ruff-format, mypy, pytest, markdownlint, painel Problemas do VS Code, gitleaks, pre-commit hooks.
+- Logs de CI devem ser limpos. Warning evitável é falha de revisão.
+- Antes de qualquer commit: rodar `/pre-commit-check` (ou equivalente manual).
+- Se uma regra de lint é "barulhenta sem motivo", desabilite-a explicitamente no `pyproject.toml`/config com comentário justificando. Nunca silencie com `# noqa` ad-hoc sem motivo escrito.
+
+### R2 — Zero duplicidade e verbosidade
+
+- Código DRY: extraia função/classe na **terceira** ocorrência (regra dos 3).
+- Sem código morto: funções não usadas, imports não usados, variáveis não usadas → removidos imediatamente.
+- Sem comentários óbvios (`# soma a e b`). Comentário existe só quando explica **porquê** não-óbvio.
+- Sem prolixidade em prosa de docs/README. Frase curta, ativa, direta.
+- Arquivos: se não é necessário (a nenhum consumidor real — dev, CI, deploy, runtime), **deletar**. Local e remoto.
+
+### R3 — Repositório mínimo (apenas o necessário para deploy)
+
+Critério de inclusão no Git:
+
+| Categoria | No Git? | Onde |
+| --- | --- | --- |
+| Código de produção | ✅ Sim | `src/` |
+| Configuração de deploy/runtime | ✅ Sim | `Dockerfile`, `docker-compose.yml`, `pyproject.toml`, `uv.lock`, `infra/` |
+| Testes (necessários ao CI) | ✅ Sim | `tests/` (exceto `tests/.local/`) |
+| Customizações IA committed | ✅ Sim | `.github/` |
+| README canônico | ✅ Sim | raiz |
+| Journal de desenvolvimento | ❌ Não | `docs/` (local-only) |
+| Notas pessoais, drafts | ❌ Não | `tests/.local/`, `notebooks/scratch/` |
+| Build artifacts, caches, secrets | ❌ Não | gitignore |
+| Documentação extra "talvez útil" | ❌ Não | mover para `docs/` (local) |
+
+`.dockerignore` deve ser ainda mais restritivo que `.gitignore`: exclui `.github/`, `tests/`, `docs/`, `*.md` (exceto se README é necessário em runtime), workflows, configs de dev.
+
+**Antes de criar arquivo novo**, pergunte: "este arquivo é consumido por algum processo real?" Se não, não crie.
+
+### R4 — README sempre atualizado e profissional
+
+- Mudou stack, comando, estrutura de pastas, fase do projeto? Atualizar `README.md` no **mesmo commit** da mudança.
+- Tom profissional: sem hype, sem emoji decorativo, sem promessas.
+- Estrutura padrão: título + descrição 1-linha + estado atual + stack + setup + comandos + estrutura + pipeline + segurança + licença.
+- Links internos devem funcionar (`get_errors` no README + verificar `docs/*` referenciados existem **no repo**, não apenas local).
+- Comandos no README devem ser **copy-paste funcionais** na versão atual do projeto.
+
+### R5 — Auditoria sob demanda
+
+Quando o usuário pedir "auditoria" / "audit" / invocar `/audit`:
+
+1. Verifica R1-R4 acima.
+2. Lista arquivos trackeados (`git ls-files`) e questiona necessidade de cada um.
+3. Avalia frontend (se existir): acessibilidade, performance (Lighthouse principles), SEO básico, semantic HTML, responsividade.
+4. Avalia backend: arquitetura limpa, separação de camadas, idempotência, observability, secrets handling, error handling, async correctness.
+5. Avalia segurança: OWASP Top 10, dependências (pip-audit/uv tree), secrets em git history, permissões mínimas.
+6. Avalia performance: hot path zero-alloc, queries N+1, índices DB, latência p99.
+7. Avalia DX: tempo de setup, clareza do README, mensagens de erro.
+8. Gera relatório em `docs/audits/AAAA-MM-DD.md` com:
+   - Conformidade por regra (✅/⚠️/❌).
+   - Findings priorizados (P0 crítico / P1 importante / P2 melhoria).
+   - Ação corretiva concreta por finding.
+9. Se findings P0 → corrigir imediatamente antes de declarar auditoria concluída.
+
+Padrão de qualidade: **enterprise-grade**. Não aceite "tá bom o suficiente".
+
 ## Regra de Ouro: Documentação Auto-Atualizada
 
 Quando uma task for concluída ou um erro corrigido, **ATUALIZE** os arquivos abaixo antes de declarar a task encerrada:
@@ -83,6 +149,7 @@ Invocar com `/`:
 - `/session-handoff` — atualiza `docs/SESSION_HANDOFF.md` antes de encerrar sessão
 - `/pre-commit-check` — roda toda a checklist de qualidade antes do commit
 - `/add-changelog` — adiciona entrada em `docs/CHANGELOG.md`
+- `/audit` — auditoria enterprise completa (R1-R5 + best practices)
 
 ## Comunicação
 

@@ -12,9 +12,7 @@ Sistema de trading algorítmico contínuo (24/7) em mercados de criptomoedas.
 
 ## Estado Atual
 
-**Fase 0 — Fundação** (estrutura, ambiente reproduzível, decisões formalizadas).
-
-Roadmap completo em [docs/TRADING_THESIS.md](docs/TRADING_THESIS.md).
+**Fase 0 — Fundação** (estrutura, ambiente reproduzível, decisões formalizadas). Próxima fase: ingestão de market data (WebSocket Binance L2 + trades tape).
 
 ---
 
@@ -96,12 +94,12 @@ infra/
   docker/       # Dockerfiles auxiliares
   prometheus/   # Configuração Prometheus
   grafana/      # Dashboards e datasources
-tests/          # LOCAL ONLY (não trackeado)
-docs/           # LOCAL ONLY exceto README
-notebooks/      # Pesquisa exploratória (research/ trackeado, scratch/ ignorado)
+tests/          # Trackeado (CI roda); tests/.local/ é local-only
+docs/           # LOCAL ONLY (journal de desenvolvimento)
+notebooks/      # notebooks/scratch/ é local-only
 ```
 
-> **Regra do projeto:** `tests/`, `docs/` (exceto este README) e `notebooks/scratch/` são **local-only**. Não commitar.
+> **Regra do projeto:** `docs/`, `tests/.local/` e `notebooks/scratch/` são **local-only**. Apenas o `README.md` da raiz é documentação canônica versionada.
 
 ---
 
@@ -116,6 +114,18 @@ notebooks/      # Pesquisa exploratória (research/ trackeado, scratch/ ignorado
 | 4 — Engenharia core | Cobertura ≥ 75% no Risk Engine, chaos test passa |
 | 5 — Paper trading | 14d testnet, métricas ±15% do backtest, uptime ≥ 99.5% |
 | 6 — Produção micro-lote | 30d com Sharpe rolling ≥ 1.2 antes de escalar |
+
+---
+
+## Regras de Produção (Inegociáveis)
+
+1. **Zero ruído em CI/CD.** Nenhum commit ou push com erro/warning de lint, format, mypy, testes ou painel Problemas. Logs limpos sempre.
+2. **Zero duplicidade / verbosidade.** Código e arquivos enxutos. Se um arquivo não agrega, ele não existe — nem local, nem no repo.
+3. **Repo mínimo.** Só entram arquivos estritamente necessários ao deploy. Tudo o que não roda em produção vai para `.gitignore`/`.dockerignore`.
+4. **README sempre atualizado e profissional.** Mudou comportamento, stack, comando ou estrutura? README reflete antes do merge.
+5. **Auditoria sob demanda** (invocar `/audit`): valida regras 1–4, alinhamento com best practices enterprise (frontend, backend, segurança), e gera relatório com ações corretivas.
+
+Detalhes operacionais e checklists em `.github/copilot-instructions.md`.
 
 ---
 
