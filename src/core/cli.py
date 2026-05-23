@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import signal
+
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -10,6 +14,9 @@ from rich.table import Table
 from core._version import __version__
 from core.config import get_settings
 from core.logging import configure_logging
+from data.binance_ws import BinanceWSClient
+from data.ingestion import IngestionService
+from data.storage import TimescaleStore
 
 app = typer.Typer(
     name="mdd",
@@ -60,6 +67,73 @@ def run() -> None:
             border_style="yellow",
         )
     )
+
+
+@app.command()
+def ingest(
+    symbol: list[str] = typer.Option(  # noqa: B008
+        ["BTCUSDT"],
+        "--symbol",
+        "-s",
+        help="Símbolos a ingerir (pode repetir).",
+    ),
+    testnet: bool = typer.Option(default=True, help="Usar testnet da Binance Spot."),
+    batch_size: int = typer.Option(default=50, min=1, max=1000),
+    flush_interval_s: float = typer.Option(default=1.0, min=0.1, max=60.0),
+) -> None:
+    """Conecta na Binance WS e persiste book + trades em TimescaleDB."""
+    s = get_settings()
+    configure_logging(level=s.log_level, json_output=s.log_json)
+    console.print(
+        Panel.fit(
+            f"Ingestão Binance ({'testnet' if testnet else 'mainnet'})\n"
+            f"Símbolos: {', '.join(symbol)}\n"
+            f"Batch: {batch_size} · flush: {flush_interval_s}s",
+            title="MdD ingest",
+            border_style="cyan",
+        )
+    )
+    asyncio.run(
+        _run_ingest(
+            symbol,
+            testnet=testnet,
+            batch_size=batch_size,
+            flush_s=flush_interval_s,
+        )
+    )
+
+
+async def _run_ingest(
+    symbols: list[str],
+    *,
+    testnet: bool,
+    batch_size: int,
+    flush_s: float,
+) -> None:
+    s = get_settings()
+    store = TimescaleStore(s.db.dsn)
+    await store.connect()
+    client = BinanceWSClient(symbols=symbols, testnet=testnet)
+    service = IngestionService(
+        client,
+        store,
+        batch_size=batch_size,
+        flush_interval_s=flush_s,
+    )
+
+    loop = asyncio.get_running_loop()
+    # Windows não suporta add_signal_handler — ignora silenciosamente.
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        with contextlib.suppress(NotImplementedError):
+            loop.add_signal_handler(
+                sig,
+                lambda: asyncio.create_task(service.stop()),
+            )
+
+    try:
+        await service.run()
+    finally:
+        await store.close()
 
 
 if __name__ == "__main__":
